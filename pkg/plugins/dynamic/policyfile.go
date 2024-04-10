@@ -2,14 +2,14 @@ package dynamic
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
 	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy/scheme"
 )
 
 func LoadPolicyFromFile(file string) (*policy.DynamicSchedulerPolicy, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

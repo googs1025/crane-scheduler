@@ -34,7 +34,7 @@ type Controller struct {
 	bindingRecords *BindingRecords
 }
 
-// NewController returns a Node Annotator object.
+// NewNodeAnnotator returns a Node Annotator object.
 func NewNodeAnnotator(
 	nodeInformer coreinformers.NodeInformer,
 	eventInformer coreinformers.EventInformer,

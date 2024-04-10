@@ -79,6 +79,39 @@ func (o *Options) Flags(flag *pflag.FlagSet) error {
 func (o *Options) ApplyTo(c *controllerappconfig.Config) error {
 	c.AnnotatorConfig = o.AnnotatorConfiguration
 	c.LeaderElection = o.LeaderElection
+	c.HealthPort = o.healthPort
+
+	var kubeconfig *rest.Config
+	var err error
+	c.Policy, err = dynamicscheduler.LoadPolicyFromFile(o.PolicyConfigPath)
+	if err != nil {
+		return err
+	}
+
+	if o.kubeconfig == "" {
+		kubeconfig, err = rest.InClusterConfig()
+	} else {
+		// Build config from configfile
+		kubeconfig, err = clientcmd.BuildConfigFromFlags(o.master, o.kubeconfig)
+	}
+	if err != nil {
+		return err
+	}
+
+	c.KubeClient, err = clientset.NewForConfig(rest.AddUserAgent(kubeconfig, ControllerUserAgent))
+	if err != nil {
+		return err
+	}
+
+	c.LeaderElectionClient = clientset.NewForConfigOrDie(rest.AddUserAgent(kubeconfig, "leader-election"))
+
+	c.PromClient, err = prometheus.NewPromClient(o.PrometheusAddr)
+	if err != nil {
+		return err
+	}
+
+	c.KubeInformerFactory = NewInformerFactory(c.KubeClient, 0)
+
 	return nil
 }
 
@@ -89,8 +122,6 @@ func (o *Options) Validate() error {
 
 // Config returns an Annotator config object.
 func (o *Options) Config() (*controllerappconfig.Config, error) {
-	var kubeconfig *rest.Config
-	var err error
 
 	if err := o.Validate(); err != nil {
 		return nil, err
@@ -100,37 +131,6 @@ func (o *Options) Config() (*controllerappconfig.Config, error) {
 	if err := o.ApplyTo(c); err != nil {
 		return nil, err
 	}
-
-	c.Policy, err = dynamicscheduler.LoadPolicyFromFile(o.PolicyConfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if o.kubeconfig == "" {
-		kubeconfig, err = rest.InClusterConfig()
-	} else {
-		// Build config from configfile
-		kubeconfig, err = clientcmd.BuildConfigFromFlags(o.master, o.kubeconfig)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	c.KubeClient, err = clientset.NewForConfig(rest.AddUserAgent(kubeconfig, ControllerUserAgent))
-	if err != nil {
-		return nil, err
-	}
-
-	c.LeaderElectionClient = clientset.NewForConfigOrDie(rest.AddUserAgent(kubeconfig, "leader-election"))
-
-	c.PromClient, err = prometheus.NewPromClient(o.PrometheusAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	c.KubeInformerFactory = NewInformerFactory(c.KubeClient, 0)
-
-	c.HealthPort = o.healthPort
 
 	return c, nil
 }
